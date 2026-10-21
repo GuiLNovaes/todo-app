@@ -31,9 +31,10 @@
     button { padding: 2px 6px; border: 0; border-radius: 6px; background: none; color: var(--muted); font: inherit; cursor: pointer; }
     button:hover { color: var(--text); }
     :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-    li .del, .grip { opacity: 0; transition: opacity .15s; }
+    li .del { opacity: 0; transition: opacity .15s; }
+    .grip { opacity: .35; transition: opacity .15s; }
     li:hover .del, li:hover .grip, li .del:focus-visible, li.dragging .grip { opacity: 1; }
-    .grip { flex: none; width: 16px; padding: 0; cursor: grab; touch-action: none; letter-spacing: -2px; font-size: 0.8rem; }
+    .grip { flex: none; width: 20px; margin: -8px -4px -8px 0; padding: 8px 0; cursor: grab; touch-action: none; user-select: none; letter-spacing: -2px; font-size: 0.8rem; }
     li.dragging .grip { cursor: grabbing; }
     @media (hover: none) { li .del, .grip { opacity: 1; } }
     footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 16px; color: var(--muted); font-size: 0.85rem; }
@@ -89,7 +90,7 @@
         grip.textContent = '⋮⋮';
         grip.tabIndex = -1;
         grip.setAttribute('aria-hidden', 'true');
-        grip.onpointerdown = e => startDrag(e, li, grip);
+        grip.onpointerdown = e => startDrag(e, li);
         const box = document.createElement('input');
         box.type = 'checkbox';
         box.checked = t.done;
@@ -141,18 +142,23 @@
       input.select();
     }
 
-    function startDrag(e, li, grip) {
+    function startDrag(e, li) {
+      if (e.button !== 0) return;
       e.preventDefault();
       const list = li.parentNode;
-      grip.setPointerCapture(e.pointerId);
       li.classList.add('dragging');
-      grip.onpointermove = ev => {
+      // Listen on window, not the grip: moving the row in the DOM drops pointer capture.
+      const move = ev => {
+        if (ev.pointerId !== e.pointerId) return;
         const others = [...list.children].filter(x => x !== li);
         const before = others.find(x => { const r = x.getBoundingClientRect(); return ev.clientY < r.top + r.height / 2; });
-        list.insertBefore(li, before || null);
+        if (li.nextElementSibling !== (before || null)) list.insertBefore(li, before || null);
       };
-      grip.onpointerup = grip.onpointercancel = () => {
-        grip.onpointermove = grip.onpointerup = grip.onpointercancel = null;
+      const end = ev => {
+        if (ev.pointerId !== e.pointerId) return;
+        window.removeEventListener('pointermove', move);
+        window.removeEventListener('pointerup', end);
+        window.removeEventListener('pointercancel', end);
         // Put the shown tasks in their new order back into the slots they held, so hidden tasks stay put.
         const order = [...list.children].map(x => todos.find(t => t.id === x.dataset.id));
         const slots = todos.map((t, i) => order.includes(t) ? i : -1).filter(i => i >= 0);
@@ -160,6 +166,9 @@
         save();
         render();
       };
+      window.addEventListener('pointermove', move);
+      window.addEventListener('pointerup', end);
+      window.addEventListener('pointercancel', end);
     }
 
     document.getElementById('add').onsubmit = e => {
