@@ -5,69 +5,183 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>To-Do List</title>
   <style>
-    :root { --bg: #f6f7f9; --card: #fff; --text: #1d2330; --muted: #6b7280; --accent: #2563eb; --border: #e3e6eb; }
+    :root { --bg: #f4f5f7; --card: #fff; --text: #1a1d24; --muted: #8a909c; --accent: #2563eb; --border: #eceef2; --hover: #f8f9fb; }
     @media (prefers-color-scheme: dark) {
-      :root { --bg: #14171c; --card: #1d2128; --text: #e7e9ee; --muted: #9aa1ad; --accent: #60a5fa; --border: #2c313a; }
+      :root { --bg: #111317; --card: #1a1d23; --text: #e8eaef; --muted: #7d8491; --accent: #60a5fa; --border: #262a32; --hover: #20242b; }
     }
     * { box-sizing: border-box; }
-    body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.5 system-ui, sans-serif; }
-    main { max-width: 480px; margin: 48px auto; padding: 0 16px; }
-    h1 { margin: 0 0 16px; font-size: 1.6rem; }
-    form { display: flex; gap: 8px; margin-bottom: 16px; }
-    input[type=text] { flex: 1; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--card); color: var(--text); font: inherit; }
-    button { padding: 10px 14px; border: 0; border-radius: 8px; background: var(--accent); color: #fff; font: inherit; cursor: pointer; }
+    body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; -webkit-font-smoothing: antialiased; }
+    main { max-width: 520px; margin: 64px auto; padding: 0 16px; }
+    h1 { margin: 0 0 20px; font-size: 1.75rem; font-weight: 650; letter-spacing: -0.02em; }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; box-shadow: 0 1px 2px rgb(0 0 0 / 0.04), 0 8px 24px rgb(0 0 0 / 0.04); overflow: hidden; }
+    form { display: flex; align-items: center; gap: 12px; padding: 14px 16px 14px 40px; border-bottom: 1px solid var(--border); }
+    form::before { content: "+"; width: 20px; text-align: center; color: var(--muted); font-size: 1.25rem; line-height: 1; }
+    input[type=text] { flex: 1; min-width: 0; padding: 4px 0; border: 0; outline: 0; background: none; color: var(--text); font: inherit; }
+    input[type=text]::placeholder { color: var(--muted); }
     ul { list-style: none; margin: 0; padding: 0; }
-    li { display: flex; align-items: center; gap: 10px; padding: 10px 12px; margin-bottom: 8px; background: var(--card); border: 1px solid var(--border); border-radius: 8px; }
-    li span { flex: 1; }
+    li { display: flex; align-items: center; gap: 12px; padding: 12px 16px 12px 12px; border-bottom: 1px solid var(--border); background: var(--card); }
+    li:hover { background: var(--hover); }
+    li.dragging { position: relative; z-index: 1; background: var(--hover); box-shadow: 0 4px 16px rgb(0 0 0 / 0.12); }
+    li span { flex: 1; overflow-wrap: anywhere; cursor: text; }
     li.done span { text-decoration: line-through; color: var(--muted); }
-    li button { background: none; color: var(--muted); padding: 2px 6px; }
-    .empty { color: var(--muted); text-align: center; }
+    li .edit { padding: 0; margin: -1px 0; border-bottom: 1px solid var(--accent); border-radius: 0; }
+    input[type=checkbox] { appearance: none; flex: none; width: 20px; height: 20px; margin: 0; border: 1.5px solid var(--muted); border-radius: 50%; cursor: pointer; display: grid; place-content: center; transition: background .15s, border-color .15s; }
+    input[type=checkbox]:checked { background: var(--accent); border-color: var(--accent); }
+    input[type=checkbox]:checked::after { content: ""; width: 5px; height: 9px; margin-top: -2px; border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg); }
+    button { padding: 2px 6px; border: 0; border-radius: 6px; background: none; color: var(--muted); font: inherit; cursor: pointer; }
+    button:hover { color: var(--text); }
+    :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+    li .del, .grip { opacity: 0; transition: opacity .15s; }
+    li:hover .del, li:hover .grip, li .del:focus-visible, li.dragging .grip { opacity: 1; }
+    .grip { flex: none; width: 16px; padding: 0; cursor: grab; touch-action: none; letter-spacing: -2px; font-size: 0.8rem; }
+    li.dragging .grip { cursor: grabbing; }
+    @media (hover: none) { li .del, .grip { opacity: 1; } }
+    footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 16px; color: var(--muted); font-size: 0.85rem; }
+    .filters { display: flex; gap: 2px; }
+    .filters button[aria-pressed=true] { background: var(--hover); color: var(--text); }
+    .clear { visibility: hidden; }
+    .clear.show { visibility: visible; }
+    .empty { margin: 0; padding: 28px 16px; color: var(--muted); text-align: center; border-bottom: 1px solid var(--border); }
+    .hint { margin: 12px 0 0; color: var(--muted); font-size: 0.8rem; text-align: center; }
   </style>
 </head>
 <body>
   <main>
     <h1>To-Do List</h1>
-    <form id="add">
-      <input type="text" id="text" placeholder="What needs doing?" autocomplete="off" required>
-      <button>Add</button>
-    </form>
-    <ul id="list"></ul>
-    <p class="empty" id="empty">Nothing yet. Saved in this browser only.</p>
+    <div class="card">
+      <form id="add">
+        <input type="text" id="text" placeholder="Add a task" autocomplete="off" aria-label="New task" required>
+      </form>
+      <ul id="list"></ul>
+      <p class="empty" id="empty"></p>
+      <footer>
+        <span id="count"></span>
+        <div class="filters" id="filters">
+          <button data-filter="all">All</button>
+          <button data-filter="active">Active</button>
+          <button data-filter="done">Done</button>
+        </div>
+        <button class="clear" id="clear">Clear completed</button>
+      </footer>
+    </div>
+    <p class="hint">Double-click a task to edit · drag ⋮⋮ to reorder · saved in this browser</p>
   </main>
   <script>
     const KEY = 'todos';
+    const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
     let todos = [];
+    let filter = 'all';
     try { todos = JSON.parse(localStorage.getItem(KEY)) || []; } catch {}
+    todos.forEach(t => { t.id ||= uid(); });
 
     const save = () => { try { localStorage.setItem(KEY, JSON.stringify(todos)); } catch {} };
+    const visible = t => filter === 'all' || (filter === 'done') === t.done;
 
     function render() {
       const list = document.getElementById('list');
       list.innerHTML = '';
-      todos.forEach((t, i) => {
+      todos.filter(visible).forEach(t => {
         const li = document.createElement('li');
         li.className = t.done ? 'done' : '';
+        li.dataset.id = t.id;
+        const grip = document.createElement('button');
+        grip.className = 'grip';
+        grip.textContent = '⋮⋮';
+        grip.tabIndex = -1;
+        grip.setAttribute('aria-hidden', 'true');
+        grip.onpointerdown = e => startDrag(e, li, grip);
         const box = document.createElement('input');
         box.type = 'checkbox';
         box.checked = t.done;
+        box.setAttribute('aria-label', 'Mark done');
         box.onchange = () => { t.done = box.checked; save(); render(); };
         const span = document.createElement('span');
         span.textContent = t.text;
+        span.ondblclick = () => startEdit(t, span);
         const del = document.createElement('button');
+        del.className = 'del';
         del.textContent = '✕';
         del.title = 'Delete';
-        del.onclick = () => { todos.splice(i, 1); save(); render(); };
-        li.append(box, span, del);
+        del.setAttribute('aria-label', 'Delete task');
+        del.onclick = () => { todos = todos.filter(x => x !== t); save(); render(); };
+        li.append(grip, box, span, del);
         list.append(li);
       });
-      document.getElementById('empty').hidden = todos.length > 0;
+
+      const left = todos.filter(t => !t.done).length;
+      const empty = document.getElementById('empty');
+      empty.hidden = list.children.length > 0;
+      empty.textContent = todos.length === 0 ? 'Nothing yet.' : filter === 'active' ? 'All done. Nice.' : 'No completed tasks.';
+      document.getElementById('count').textContent = `${left} ${left === 1 ? 'task' : 'tasks'} left`;
+      document.getElementById('clear').classList.toggle('show', todos.some(t => t.done));
+      document.querySelectorAll('#filters button').forEach(b => b.setAttribute('aria-pressed', b.dataset.filter === filter));
+    }
+
+    function startEdit(t, span) {
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.className = 'edit';
+      input.value = t.text;
+      input.setAttribute('aria-label', 'Edit task');
+      let finished = false;
+      const finish = keep => {
+        if (finished) return;
+        finished = true;
+        const text = input.value.trim();
+        if (keep && text) { t.text = text; save(); }
+        render();
+      };
+      input.onkeydown = e => {
+        if (e.key === 'Enter') finish(true);
+        if (e.key === 'Escape') finish(false);
+      };
+      input.onblur = () => finish(true);
+      span.replaceWith(input);
+      input.focus();
+      input.select();
+    }
+
+    function startDrag(e, li, grip) {
+      e.preventDefault();
+      const list = li.parentNode;
+      grip.setPointerCapture(e.pointerId);
+      li.classList.add('dragging');
+      grip.onpointermove = ev => {
+        const others = [...list.children].filter(x => x !== li);
+        const before = others.find(x => { const r = x.getBoundingClientRect(); return ev.clientY < r.top + r.height / 2; });
+        list.insertBefore(li, before || null);
+      };
+      grip.onpointerup = grip.onpointercancel = () => {
+        grip.onpointermove = grip.onpointerup = grip.onpointercancel = null;
+        // Put the shown tasks in their new order back into the slots they held, so hidden tasks stay put.
+        const order = [...list.children].map(x => todos.find(t => t.id === x.dataset.id));
+        const slots = todos.map((t, i) => order.includes(t) ? i : -1).filter(i => i >= 0);
+        slots.forEach((slot, k) => { todos[slot] = order[k]; });
+        save();
+        render();
+      };
     }
 
     document.getElementById('add').onsubmit = e => {
       e.preventDefault();
       const input = document.getElementById('text');
-      todos.push({ text: input.value.trim(), done: false });
+      const text = input.value.trim();
+      if (!text) return;
+      todos.push({ id: uid(), text, done: false });
       input.value = '';
+      if (filter === 'done') filter = 'all';
+      save();
+      render();
+    };
+
+    document.getElementById('filters').onclick = e => {
+      if (!e.target.dataset.filter) return;
+      filter = e.target.dataset.filter;
+      render();
+    };
+
+    document.getElementById('clear').onclick = () => {
+      todos = todos.filter(t => !t.done);
       save();
       render();
     };
